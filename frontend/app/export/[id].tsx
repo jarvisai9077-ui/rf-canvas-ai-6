@@ -9,10 +9,11 @@ import { ExportResult, exportPDF, exportRaster, exportSVG, fileName, listExports
 import { freeSpaceOK } from "@/src/engine/media";
 import { getState, toast, updateSettings, useStore } from "@/src/engine/store";
 import { radius, spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 type F = "png" | "jpg" | "svg" | "pdf" | "json";
 
-export default function ExportScreen() {
+function ExportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme(); const { width } = useWindowDimensions();
   const { projects, settings } = useStore(); const p = projects.find((x) => x.id === id);
   const [fmt, setFmt] = useState<F>("png"); const [scale, setScale] = useState(1); const [quality, setQuality] = useState(90);
@@ -20,7 +21,7 @@ export default function ExportScreen() {
   const [tpl, setTpl] = useState(settings.filenameTemplate); const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<ExportResult[]>([]); const [renderPage, setRenderPage] = useState(0); const [prev, setPrev] = useState<string | null>(null);
   const ref = useRef<View>(null); const cancel = useRef(false); const [capturing, setCapturing] = useState(false);
-  useEffect(() => { listExports().then((l) => { const last = l.find((r) => r.projectId === id && r.format === fmt); setPrev(last ? `${(last.size / 1024).toFixed(1)} KB on ${new Date(last.t).toLocaleString()}` : null); }); }, [id, fmt, results]);
+  useEffect(() => { listExports().catch(() => [] as Awaited<ReturnType<typeof listExports>>).then((l) => { const last = l.find((r) => r.projectId === id && r.format === fmt); setPrev(last ? `${(last.size / 1024).toFixed(1)} KB on ${new Date(last.t).toLocaleString()}` : null); }); }, [id, fmt, results]);
   if (!p) return null;
   const w = Math.round(p.width * scale), h = Math.round(p.height * scale);
   const est = fmt === "png" ? w * h * 1.2 : fmt === "jpg" ? w * h * 0.25 * (quality / 100) : fmt === "pdf" ? p.pages.length * 300000 : 50000;
@@ -97,3 +98,5 @@ export default function ExportScreen() {
     </View>
   );
 }
+
+export default withProject(ExportScreen);

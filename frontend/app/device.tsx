@@ -16,13 +16,20 @@ export default function DeviceTest() {
   const router = useRouter(); const insets = useSafeAreaInsets(); const { width, height } = useWindowDimensions();
   const [info, setInfo] = useState<any>(null);
   const run = async () => {
-    const t0 = Date.now(); let x = 0; for (let i = 0; i < 3e6; i++) x += Math.sqrt(i); const cpuMs = Date.now() - t0; void x;
-    const free = Platform.OS === "web" ? null : await FS.getFreeDiskStorageAsync().catch(() => null);
-    const total = Platform.OS === "web" ? null : await FS.getTotalDiskCapacityAsync().catch(() => null);
-    const docs = await dirSize(FS.documentDirectory); const cache = await dirSize(FS.cacheDirectory);
-    const ram = Device.totalMemory ?? null;
-    const profile = ram === null ? (cpuMs < 60 ? "balanced" : "low") : ram < 4.2e9 ? "low" : ram < 6.5e9 ? "balanced" : "high";
-    setInfo({ ram, free, total, docs, cache, cpuMs, profile });
+    try {
+      // Let the screen paint first; the benchmark runs right after the first frame.
+      await new Promise((r) => setTimeout(r, 0));
+      const t0 = Date.now(); let x = 0; for (let i = 0; i < 3e6; i++) x += Math.sqrt(i); const cpuMs = Date.now() - t0; void x;
+      const free = Platform.OS === "web" ? null : await FS.getFreeDiskStorageAsync().catch(() => null);
+      const total = Platform.OS === "web" ? null : await FS.getTotalDiskCapacityAsync().catch(() => null);
+      const docs = await dirSize(FS.documentDirectory); const cache = await dirSize(FS.cacheDirectory);
+      const ram = Device.totalMemory ?? null;
+      const profile = ram === null ? (cpuMs < 60 ? "balanced" : "low") : ram < 4.2e9 ? "low" : ram < 6.5e9 ? "balanced" : "high";
+      setInfo({ ram, free, total, docs, cache, cpuMs, profile });
+    } catch (e: any) {
+      toast(e?.message ? `Device test failed: ${e.message}` : "Device test failed", "error");
+      setInfo((i: any) => i ?? { ram: Device.totalMemory ?? null, free: null, total: null, docs: 0, cache: 0, cpuMs: 0, profile: "balanced" });
+    }
   };
   useEffect(() => { run(); }, []);
   const p = info?.profile as "low" | "balanced" | "high" | undefined;

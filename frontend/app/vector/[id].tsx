@@ -12,11 +12,12 @@ import { pickTextFile } from "@/src/engine/media";
 import { toast } from "@/src/engine/store";
 import type { Layer } from "@/src/engine/types";
 import { radius, spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 type Mode = "pen" | "edit" | "measure";
 
 // Vector Studio: node-based pen tool, spline smoothing, offset, simplify, procedural shapes, measurement, SVG import.
-export default function Vector() {
+function Vector() {
   const { id, page } = useLocalSearchParams<{ id: string; page?: string }>(); const ed = useEditor(id!); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme();
   useEffect(() => { if (page) ed.setPageIndex(Number(page)); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   const [mode, setMode] = useState<Mode>("pen"); const [nodes, setNodes] = useState<Pt[]>([]); const [smooth, setSmooth] = useState(true); const [closed, setClosed] = useState(false);
@@ -129,3 +130,5 @@ export default function Vector() {
     </View>
   );
 }
+
+export default withProject(Vector);

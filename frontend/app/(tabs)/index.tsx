@@ -1,14 +1,13 @@
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { Image, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProjectThumb } from "@/src/components/ProjectThumb";
 import { TemplatePreview } from "@/src/components/TemplatePreview";
-import { Ambient, Glass, IconBtn, Section, T } from "@/src/components/ui";
+import { Ambient, Btn, Glass, IconBtn, Section, T } from "@/src/components/ui";
 import { newProject, templates } from "@/src/engine/factory";
-import { saveProject, useStore } from "@/src/engine/store";
+import { retryLoad, saveProject, useStore } from "@/src/engine/store";
 import { projectRoute, usesNativeTabs } from "@/src/navigation";
 import { radius, spacing, useTheme } from "@/src/theme";
 
@@ -29,7 +28,7 @@ const studios = [
 ];
 
 export default function Home() {
-  const router = useRouter(); const { projects, recovered } = useStore(); const { colors } = useTheme();
+  const router = useRouter(); const { projects, recovered, ready, loadError } = useStore(); const { colors } = useTheme();
   const insets = useSafeAreaInsets(); const { width } = useWindowDimensions();
   const recent = projects.filter((p) => !p.trashed && !p.archived).slice(0, 8);
   const create = (q: (typeof quick)[number]) => { const p = newProject({ name: `Untitled ${q.name}`, kind: q.kind, width: q.w, height: q.h, category: q.name }); saveProject(p, { immediate: true }); router.push(projectRoute(p)); };
@@ -40,7 +39,10 @@ export default function Home() {
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: bottom + 24 }} testID="home-screen">
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, gap: 4 }}>
           <View style={{ flex: 1 }}>
-            <T v="label" style={{ color: colors.brandPrimary }}>RF Canvas</T>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Image source={require("../../assets/images/logo.png")} style={{ width: 22, height: 22, borderRadius: 6 }} accessibilityLabel="RF Canvas logo" testID="home-logo" />
+              <T v="label" style={{ color: colors.brandPrimary }}>RF Canvas</T>
+            </View>
             <T v="h1">What will you make?</T>
           </View>
           <IconBtn icon="search" label="Command palette" onPress={() => router.push("/palette")} testID="home-command-palette-button" />
@@ -52,6 +54,13 @@ export default function Home() {
             <T v="muted" style={{ flex: 1 }}>Search tools, projects or type a command…</T>
           </Glass>
         </Pressable>
+        {loadError ? (
+          <View testID="load-error-banner" style={{ margin: spacing.md, marginBottom: 0, padding: 14, borderRadius: radius.lg, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.error, flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Ionicons name="warning" size={20} color={colors.error} />
+            <T v="small" style={{ flex: 1 }}>Saved projects couldn&apos;t be read right now. Nothing has been changed or deleted.</T>
+            <Btn small label="Retry" onPress={retryLoad} testID="load-error-retry" />
+          </View>
+        ) : null}
         {recovered.length ? (
           <View testID="recovery-banner" style={{ margin: spacing.md, marginBottom: 0, padding: 14, borderRadius: radius.lg, backgroundColor: colors.brandTertiary, flexDirection: "row", gap: 10 }}>
             <Ionicons name="medkit" size={20} color={colors.onBrandTertiary} />
@@ -61,19 +70,23 @@ export default function Home() {
         <Section title="Start creating" right={<Pressable onPress={() => router.push("/create")} testID="home-custom-size-link"><T v="small" style={{ color: colors.brandPrimary }}>Custom size</T></Pressable>}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: spacing.md }}>
             {quick.map((q, i) => (
-              <Animated.View key={q.name} entering={FadeInDown.delay(i * 40)}>
+              <View key={q.name}>
                 <Pressable onPress={() => create(q)} testID={`quick-create-${q.name.toLowerCase().replace(/ /g, "-")}`} style={({ pressed }) => ({ width: 104, alignItems: "center", gap: 8, opacity: pressed ? 0.7 : 1 })}>
                   <View style={{ width: 96, height: 96, borderRadius: 24, backgroundColor: i === 0 ? colors.brandPrimary : colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
                     <Ionicons name={q.icon as any} size={30} color={i === 0 ? colors.onBrandPrimary : colors.brandPrimary} />
                   </View>
                   <T v="small" numberOfLines={1} style={{ color: colors.onSurface }}>{q.name}</T>
                 </Pressable>
-              </Animated.View>
+              </View>
             ))}
           </ScrollView>
         </Section>
         <Section title="Recent projects" right={<Pressable onPress={() => router.push("/(tabs)/projects")} testID="home-see-all-projects"><T v="small" style={{ color: colors.brandPrimary }}>See all</T></Pressable>}>
-          {recent.length ? (
+          {!ready && !recent.length ? (
+            <View testID="recent-skeleton" style={{ flexDirection: "row", gap: 12, paddingHorizontal: spacing.md }}>
+              {[0, 1].map((i) => <View key={i} style={{ width: 150, height: 196, borderRadius: radius.lg, backgroundColor: colors.surfaceTertiary }} />)}
+            </View>
+          ) : recent.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: spacing.md }}>
               {recent.map((p) => <ProjectThumb key={p.id} p={p} width={150} onPress={() => router.push(projectRoute(p))} testID={`recent-project-${p.id}`} />)}
             </ScrollView>

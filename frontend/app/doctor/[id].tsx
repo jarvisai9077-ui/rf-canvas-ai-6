@@ -6,8 +6,9 @@ import { Badge, Btn, Card, Header, Row, Section, T } from "@/src/components/ui";
 import { analyzeDesign, complexity, integrityScan, repairProject } from "@/src/engine/doctor";
 import { confirmAsk, duplicateProject, saveProject, toast, useStore } from "@/src/engine/store";
 import { spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
-export default function Doctor() {
+function Doctor() {
   const { id, page } = useLocalSearchParams<{ id: string; page?: string }>(); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme();
   const { projects, brands } = useStore(); const p = projects.find((x) => x.id === id); const pi = Math.min(Number(page ?? 0), (p?.pages.length ?? 1) - 1);
   const brand = brands.find((b) => b.id === p?.brandId) ?? null;
@@ -64,3 +65,5 @@ export default function Doctor() {
     </View>
   );
 }
+
+export default withProject(Doctor);

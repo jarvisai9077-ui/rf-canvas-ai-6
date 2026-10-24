@@ -3,6 +3,7 @@
 // it shows up in the Metro output. Do not mount additional boundaries.
 
 import { reloadAppAsync } from "expo";
+import { router } from "expo-router";
 import { Component, type ErrorInfo, type PropsWithChildren, useState } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
@@ -46,6 +47,12 @@ function ErrorFallback({ error, resetError }: { error: Error; resetError: () => 
     }
   };
 
+  // Recover without a full reload: clear the crash and go to the Home tab.
+  const handleHome = () => {
+    try { router.replace("/"); } catch { /* router not mounted yet */ }
+    resetError();
+  };
+
   return (
     <View style={styles.container} testID="error-fallback">
       <View style={styles.content}>
@@ -60,6 +67,15 @@ function ErrorFallback({ error, resetError }: { error: Error; resetError: () => 
         >
           <Text style={styles.buttonText}>Reload app</Text>
         </Pressable>
+        <Pressable
+          onPress={handleHome}
+          testID="error-fallback-home"
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.buttonGhost, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.buttonGhostText}>Back to Home</Text>
+        </Pressable>
+        <Text style={styles.note}>Your projects are saved on this device and are not affected.</Text>
         {__DEV__ ? (
           <Pressable onPress={() => setShowDetails((v) => !v)} accessibilityRole="button" hitSlop={8}>
             <Text style={styles.detailsToggle}>{showDetails ? "Hide details" : "Show details"}</Text>
@@ -114,6 +130,26 @@ const useStyles = makeStyles((colors) => ({
   },
   buttonPressed: {
     opacity: 0.85,
+  },
+  buttonGhost: {
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    minWidth: 180,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  buttonGhostText: {
+    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  note: {
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 4,
   },
   buttonText: {
     color: colors.onBrandPrimary,

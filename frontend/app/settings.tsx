@@ -13,11 +13,14 @@ export default function Settings() {
   const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme(); const { settings, projects, assets } = useStore();
   const sw = (k: "autosave" | "snapping" | "showGrid", label: string, sub: string) => <Row title={label} subtitle={sub} right={<Switch value={settings[k]} onValueChange={(v) => updateSettings({ [k]: v })} trackColor={{ true: colors.brandPrimary, false: colors.surfaceTertiary }} testID={`settings-${k}-switch`} />} />;
   const backup = async () => {
-    const json = buildBackup(); const name = `rf-canvas-backup-${Date.now()}.json`;
-    if (Platform.OS === "web") { const a = (globalThis as any).document.createElement("a"); a.href = URL.createObjectURL(new Blob([json], { type: "application/json" })); a.download = name; a.click(); toast("Backup downloaded", "success"); return; }
-    await FS.makeDirectoryAsync(exportDir(), { intermediates: true }).catch(() => {}); const uri = exportDir() + name; await FS.writeAsStringAsync(uri, json);
-    const ok = JSON.parse(await FS.readAsStringAsync(uri)).projects.length === projects.length;
-    toast(ok ? `Backup verified · ${projects.length} projects` : "Backup verification failed", ok ? "success" : "error"); if (ok) share(uri);
+    try {
+      const json = buildBackup(); const name = `rf-canvas-backup-${Date.now()}.json`;
+      if (Platform.OS === "web") { const a = (globalThis as any).document.createElement("a"); a.href = URL.createObjectURL(new Blob([json], { type: "application/json" })); a.download = name; a.click(); toast("Backup downloaded", "success"); return; }
+      await FS.makeDirectoryAsync(exportDir(), { intermediates: true }).catch(() => {}); const uri = exportDir() + name; await FS.writeAsStringAsync(uri, json);
+      let ok = false; try { ok = JSON.parse(await FS.readAsStringAsync(uri)).projects.length === projects.length; } catch { ok = false; }
+      toast(ok ? `Backup verified · ${projects.length} projects` : "Backup verification failed. Please try again.", ok ? "success" : "error");
+      if (ok) await share(uri).catch(() => toast("Backup saved, but sharing isn't available", "info"));
+    } catch (e: any) { toast(e?.message ? `Backup failed: ${e.message}` : "Backup failed. Free up storage and try again.", "error"); }
   };
   const restore = async () => {
     const f = await pickTextFile(["application/json", "*/*"]); if (!f) return;

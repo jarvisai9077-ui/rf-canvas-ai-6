@@ -9,12 +9,13 @@ import { pickFiles, pickFromGallery } from "@/src/engine/media";
 import { getProject, saveProject, toast, uid } from "@/src/engine/store";
 import type { Clip, TextOverlay, Timeline } from "@/src/engine/types";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}.${Math.floor((s % 1) * 10)}`;
 const clipLen = (c: Clip) => (c.out - c.in) / c.speed;
 
 // Video Studio: non-destructive edit decision list with real playback of trims, splits, speed, volume and titles.
-export default function VideoStudio() {
+function VideoStudio() {
   const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme(); const { width } = useWindowDimensions();
   const [p, setP] = useState(() => getProject(id!)); const tl: Timeline = p?.timeline ?? { clips: [], audio: [], texts: [], markers: [], aspect: "16:9" };
   const [sel, setSel] = useState<string | null>(null); const [ci, setCi] = useState(0); const [t, setT] = useState(0); const [playing, setPlaying] = useState(false);
@@ -130,3 +131,5 @@ export default function VideoStudio() {
     </View>
   );
 }
+
+export default withProject(VideoStudio);

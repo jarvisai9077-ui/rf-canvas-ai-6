@@ -12,7 +12,7 @@ import { radius, spacing, useTheme } from "@/src/theme";
 const filters = ["All", "Favourites", "Design", "Document", "Presentation", "Drawing", "Vector", "Video", "Board", "Archived", "Trash"];
 
 export default function Projects() {
-  const { projects } = useStore(); const router = useRouter(); const { colors } = useTheme();
+  const { projects, ready } = useStore(); const router = useRouter(); const { colors } = useTheme();
   const insets = useSafeAreaInsets(); const { width } = useWindowDimensions();
   const [q, setQ] = useState(""); const [f, setF] = useState("All"); const [list, setList] = useState(false);
   const [sort, setSort] = useState<"recent" | "name">("recent"); const [menu, setMenu] = useState<Project | null>(null);
@@ -56,7 +56,11 @@ export default function Projects() {
       <FlatList
         key={list ? "l" : "g" + cols} data={data} numColumns={list ? 1 : cols} keyExtractor={(p) => p.id}
         columnWrapperStyle={list ? undefined : { gap: 12 }} contentContainerStyle={{ padding: spacing.md, gap: 12, paddingBottom: bottom + 24 }}
-        ListEmptyComponent={<Empty icon="folder-open" title={f === "Trash" ? "Trash is empty" : "No projects found"} text="Create a project or start from a template." action={<Btn label="New project" icon="add" onPress={() => router.push("/create")} testID="projects-empty-create" />} />}
+        ListEmptyComponent={!ready ? (
+          <View testID="projects-skeleton" style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            {[0, 1, 2, 3].map((i) => <View key={i} style={{ width: list ? "100%" : cw, height: list ? 80 : cw * 1.1 + 48, borderRadius: radius.lg, backgroundColor: colors.surfaceTertiary }} />)}
+          </View>
+        ) : <Empty icon="folder-open" title={f === "Trash" ? "Trash is empty" : "No projects found"} text="Create a project or start from a template." action={<Btn label="New project" icon="add" onPress={() => router.push("/create")} testID="projects-empty-create" />} />}
         renderItem={({ item }) => <ProjectThumb p={item} width={cw} list={list} onPress={() => (item.trashed ? setMenu(item) : router.push(projectRoute(item)))} onLongPress={() => setMenu(item)} testID={`project-card-${item.id}`} />}
       />
       <Modal visible={!!menu} transparent animationType="fade" onRequestClose={() => setMenu(null)}>

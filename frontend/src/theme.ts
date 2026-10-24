@@ -1,5 +1,5 @@
 // RF Canvas design tokens. Light + Dark; System follows the device.
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { Appearance, StyleSheet, useColorScheme } from "react-native";
 
 export type ColorScheme = "light" | "dark";
@@ -96,7 +96,22 @@ export function setColorScheme(scheme: ColorScheme | null) {
   Appearance.setColorScheme?.(scheme ?? "unspecified");
 }
 
+// ---- Non-blocking fonts ----
+// The app renders on the very first frame with the platform font, then swaps to the
+// bundled brand fonts the moment they finish registering (usually a few ms). Every
+// component that calls useTheme() re-renders on that swap, so nothing waits on fonts.
+let fontsReady = false;
+const fontListeners = new Set<() => void>();
+const subscribeFonts = (l: () => void) => { fontListeners.add(l); return () => { fontListeners.delete(l); }; };
+const getFontsReady = () => fontsReady;
+export function setFontsReady(ready: boolean) {
+  if (fontsReady === ready) return;
+  fontsReady = ready; fontListeners.forEach((l) => l());
+}
+export const areFontsReady = () => fontsReady;
+
 export function useTheme(): { scheme: ColorScheme; colors: ThemeColors } {
+  useSyncExternalStore(subscribeFonts, getFontsReady, getFontsReady);
   const system = useColorScheme();
   const scheme: ColorScheme = (system === "light" || system === "dark") && themes[system] ? system : defaultScheme;
   return { scheme, colors: themes[scheme] ?? themes.light };
@@ -107,14 +122,18 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
 ): () => T {
   return function useStyles(): T {
     const { colors } = useTheme();
-    return useMemo(() => StyleSheet.create(factory(colors)), [colors]);
+    const ready = fontsReady;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `ready` re-creates styles after the font swap
+    return useMemo(() => StyleSheet.create(factory(colors)), [colors, ready]);
   };
 }
 
+// Until the brand fonts are registered these return undefined (= platform default font),
+// so text is readable immediately instead of the screen waiting or falling back to a serif.
 export const fonts = {
-  regular: "Jakarta-400",
-  semibold: "Jakarta-600",
-  bold: "Jakarta-800",
+  get regular(): string | undefined { return fontsReady ? "Jakarta-400" : undefined; },
+  get semibold(): string | undefined { return fontsReady ? "Jakarta-600" : undefined; },
+  get bold(): string | undefined { return fontsReady ? "Jakarta-800" : undefined; },
 };
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };

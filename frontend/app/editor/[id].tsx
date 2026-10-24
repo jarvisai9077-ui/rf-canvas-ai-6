@@ -13,11 +13,12 @@ import { pointInLayer, textBlockHeight } from "@/src/engine/geometry";
 import { confirmAsk, getProject, promptText, saveProject, toast, uid, useStore } from "@/src/engine/store";
 import type { Layer } from "@/src/engine/types";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 type Mode = "select" | "marquee" | "annotate" | "eyedrop";
 type Tab = "add" | "layers" | "edit" | "arrange" | "page" | "tools" | null;
 
-export default function EditorScreen() {
+function EditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const ed = useEditor(id!); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme(); const { settings } = useStore();
   const [area, setArea] = useState({ w: 1, h: 1 }); const origin = useRef({ x: 0, y: 0 }); const areaRef = useRef<any>(null);
@@ -243,3 +244,5 @@ function suggestions(sel: Layer[]): [string, string][] {
   if (l.type === "image") return [["Adjust in Image Lab", "lab"], ["Round corners", "edit"], ["Fit canvas", "edit"]];
   return [["Fill & gradient", "edit"], ["Align", "arrange"], ["Layers", "layers"]];
 }
+
+export default withProject(EditorScreen);

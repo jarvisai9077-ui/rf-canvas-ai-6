@@ -7,9 +7,10 @@ import { CanvasView } from "@/src/components/CanvasView";
 import { IconBtn, T } from "@/src/components/ui";
 import { useStore } from "@/src/engine/store";
 import { spacing } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 // Presenter mode: full screen slides, transitions and speaker notes.
-export default function Present() {
+function Present() {
   const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const insets = useSafeAreaInsets(); const { width, height } = useWindowDimensions();
   const p = useStore().projects.find((x) => x.id === id); const [i, setI] = useState(0); const [notes, setNotes] = useState(true);
   if (!p) return null;
@@ -33,3 +34,5 @@ export default function Present() {
     </View>
   );
 }
+
+export default withProject(Present);

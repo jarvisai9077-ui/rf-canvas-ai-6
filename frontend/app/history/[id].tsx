@@ -9,9 +9,10 @@ import { confirmAsk, duplicateProject, promptText, saveProject, toast, uid, useS
 import type { Page } from "@/src/engine/types";
 import { projectRoute } from "@/src/navigation";
 import { radius, spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 // Versions, snapshots, edit-history search, safe experiments, diff and variant comparison wall.
-export default function History() {
+function History() {
   const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme(); const { width } = useWindowDimensions();
   const { projects } = useStore(); const p = projects.find((x) => x.id === id);
   const [q, setQ] = useState(""); const [cmp, setCmp] = useState<string[]>([]); const [zoom, setZoom] = useState(1);
@@ -73,3 +74,5 @@ export default function History() {
     </View>
   );
 }
+
+export default withProject(History);

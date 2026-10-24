@@ -5,10 +5,26 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, PanResponder, Platform, Pressable, ScrollView, StyleProp, Text, TextInput, TextStyle, View, ViewStyle } from "react-native";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { closeConfirm, useUI } from "@/src/engine/store";
+import { closeConfirm, toast, useUI } from "@/src/engine/store";
 import { fonts, makeStyles, radius, spacing, useTheme } from "@/src/theme";
 
 export type IconName = React.ComponentProps<typeof Ionicons>["name"];
+
+// Every tappable primitive runs its handler through this guard: a thrown error or a
+// rejected promise becomes a clear toast instead of a silent failure or a crash.
+function reportActionError(e: any) {
+  console.error("[RF Canvas] action failed:", e);
+  toast(e?.message ? `That didn't work: ${e.message}` : "That didn't work. Please try again.", "error");
+}
+export function guard<A extends unknown[]>(fn?: (...args: A) => unknown) {
+  return (...args: A) => {
+    if (!fn) return;
+    try {
+      const r: any = fn(...args);
+      if (r && typeof r.then === "function") r.then(undefined, reportActionError);
+    } catch (e) { reportActionError(e); }
+  };
+}
 
 export function Ambient() {
   const { colors } = useTheme();
@@ -39,12 +55,12 @@ export function Glass({ children, style, testID, intensity = 40 }: { children: R
   );
 }
 
-export function Btn({ label, onPress, icon, kind = "primary", testID, disabled, loading, small, style }: { label: string; onPress: () => void; icon?: IconName; kind?: "primary" | "secondary" | "ghost" | "danger"; testID?: string; disabled?: boolean; loading?: boolean; small?: boolean; style?: StyleProp<ViewStyle> }) {
+export function Btn({ label, onPress, icon, kind = "primary", testID, disabled, loading, small, style }: { label: string; onPress: () => unknown; icon?: IconName; kind?: "primary" | "secondary" | "ghost" | "danger"; testID?: string; disabled?: boolean; loading?: boolean; small?: boolean; style?: StyleProp<ViewStyle> }) {
   const { colors } = useTheme();
   const bg = { primary: colors.brandPrimary, secondary: colors.brandTertiary, ghost: "transparent", danger: colors.error }[kind];
   const fg = { primary: colors.onBrandPrimary, secondary: colors.onBrandTertiary, ghost: colors.onSurface, danger: colors.onError }[kind];
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={disabled || loading} onPress={onPress}
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={disabled || loading} onPress={guard(onPress)}
       style={({ pressed }) => [{ minHeight: small ? 38 : 48, paddingHorizontal: small ? 14 : 20, borderRadius: radius.pill, backgroundColor: bg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, opacity: disabled ? 0.45 : 1, transform: [{ scale: pressed ? 0.97 : 1 }], borderWidth: kind === "ghost" ? 1 : 0, borderColor: colors.borderStrong }, style]}>
       {loading ? <ActivityIndicator color={fg} /> : icon ? <Ionicons name={icon} size={small ? 16 : 18} color={fg} /> : null}
       <Text style={{ color: fg, fontFamily: fonts.semibold, fontSize: small ? 13 : 15 }}>{label}</Text>
@@ -52,20 +68,20 @@ export function Btn({ label, onPress, icon, kind = "primary", testID, disabled, 
   );
 }
 
-export function IconBtn({ icon, onPress, testID, label, active, size = 22, disabled, tone }: { icon: IconName; onPress: () => void; testID?: string; label: string; active?: boolean; size?: number; disabled?: boolean; tone?: string }) {
+export function IconBtn({ icon, onPress, testID, label, active, size = 22, disabled, tone }: { icon: IconName; onPress: () => unknown; testID?: string; label: string; active?: boolean; size?: number; disabled?: boolean; tone?: string }) {
   const { colors } = useTheme();
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} hitSlop={4}
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={guard(onPress)} hitSlop={4}
       style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: active ? colors.brandTertiary : pressed ? colors.surfaceTertiary : "transparent", opacity: disabled ? 0.35 : 1 })}>
       <Ionicons name={icon} size={size} color={tone ?? (active ? colors.brandPrimary : colors.onSurface)} />
     </Pressable>
   );
 }
 
-export function Tool({ icon, label, onPress, testID, active }: { icon: IconName; label: string; onPress: () => void; testID?: string; active?: boolean }) {
+export function Tool({ icon, label, onPress, testID, active }: { icon: IconName; label: string; onPress: () => unknown; testID?: string; active?: boolean }) {
   const { colors } = useTheme();
   return (
-    <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 72, alignItems: "center", gap: 6, paddingVertical: 6, opacity: pressed ? 0.6 : 1 })}>
+    <Pressable testID={testID} onPress={guard(onPress)} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => ({ width: 72, alignItems: "center", gap: 6, paddingVertical: 6, opacity: pressed ? 0.6 : 1 })}>
       <View style={{ width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: active ? colors.brandPrimary : colors.surfaceTertiary }}>
         <Ionicons name={icon} size={22} color={active ? colors.onBrandPrimary : colors.onSurface} />
       </View>
@@ -74,10 +90,10 @@ export function Tool({ icon, label, onPress, testID, active }: { icon: IconName;
   );
 }
 
-export function Chip({ label, active, onPress, testID, icon }: { label: string; active?: boolean; onPress: () => void; testID?: string; icon?: IconName }) {
+export function Chip({ label, active, onPress, testID, icon }: { label: string; active?: boolean; onPress: () => unknown; testID?: string; icon?: IconName }) {
   const { colors } = useTheme();
   return (
-    <Pressable testID={testID} onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: !!active }}
+    <Pressable testID={testID} onPress={guard(onPress)} accessibilityRole="button" accessibilityState={{ selected: !!active }}
       style={{ height: 36, flexShrink: 0, paddingHorizontal: 14, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: active ? colors.surfaceInverse : colors.glassStrong, borderWidth: 1, borderColor: active ? colors.surfaceInverse : colors.border }}>
       {icon ? <Ionicons name={icon} size={14} color={active ? colors.onSurfaceInverse : colors.onSurface} /> : null}
       <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: active ? colors.onSurfaceInverse : colors.onSurface }}>{label}</Text>
@@ -114,10 +130,10 @@ export function Section({ title, children, right }: { title: string; children: R
   );
 }
 
-export function Row({ icon, title, subtitle, onPress, right, testID, tone }: { icon?: IconName; title: string; subtitle?: string; onPress?: () => void; right?: React.ReactNode; testID?: string; tone?: string }) {
+export function Row({ icon, title, subtitle, onPress, right, testID, tone }: { icon?: IconName; title: string; subtitle?: string; onPress?: () => unknown; right?: React.ReactNode; testID?: string; tone?: string }) {
   const { colors } = useTheme();
   return (
-    <Pressable testID={testID} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? "button" : undefined}
+    <Pressable testID={testID} onPress={onPress ? guard(onPress) : undefined} disabled={!onPress} accessibilityRole={onPress ? "button" : undefined}
       style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: spacing.md, minHeight: 56, backgroundColor: pressed ? colors.surfaceTertiary : "transparent" })}>
       {icon ? <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" }}><Ionicons name={icon} size={18} color={tone ?? colors.brandPrimary} /></View> : null}
       <View style={{ flex: 1 }}>

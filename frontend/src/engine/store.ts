@@ -1,5 +1,6 @@
 // Offline-first local store. Every project is persisted as its own key with a
 // rolling backup copy; reads fall back to the backup if the main copy is corrupt.
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSyncExternalStore } from "react";
 import { storage } from "@/src/utils/storage";
 import { setColorScheme } from "@/src/theme";
@@ -14,6 +15,8 @@ interface State {
   brands: Brand[];
   settings: Settings;
   recovered: string[];
+  /** Set when saved data could not be read; writes to shared indexes are paused so nothing is overwritten. */
+  loadError: string | null;
 }
 
 export const defaultSettings: Settings = {
@@ -23,7 +26,7 @@ export const defaultSettings: Settings = {
   selectionPresets: [], effectPresets: [],
 };
 
-let state: State = { ready: false, projects: [], assets: [], brands: [], settings: defaultSettings, recovered: [] };
+let state: State = { ready: false, projects: [], assets: [], brands: [], settings: defaultSettings, recovered: [], loadError: null };
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const set = (patch: Partial<State>) => { state = { ...state, ...patch }; emit(); };
@@ -50,24 +53,78 @@ function normalize(p: Project): Project {
   return { ...d, ...p };
 }
 
-export async function initStore() {
-  if (state.ready) return;
-  const ids = (await readJSON<string[]>(K.index)) ?? [];
-  const projects: Project[] = []; const recovered: string[] = [];
-  for (const id of ids) {
-    let p = await readJSON<Project>(K.proj(id));
-    if (!validateProject(p)) {
-      const b = await readJSON<Project>(K.bak(id));
-      if (validateProject(b)) { p = { ...b, recovered: true }; recovered.push(b.name); }
-      else continue;
-    }
-    projects.push(normalize(p));
-  }
-  const assets = (await readJSON<Asset[]>(K.assets)) ?? [];
-  const brands = (await readJSON<Brand[]>(K.brands)) ?? [];
-  const settings = { ...defaultSettings, ...((await readJSON<Settings>(K.settings)) ?? {}) };
+// ---- Hydration ----
+// The UI renders immediately; saved data streams in a moment later (all keys read in
+// parallel). Anything the user does before hydration finishes is kept and merged in,
+// and shared index writes wait for hydration so a quick tap can never wipe saved work.
+let hydration: Promise<void> | null = null;
+let pendingSettings: Partial<Settings> = {};
+const whenHydrated = () => hydration ?? Promise.resolve();
+const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
+async function projectIdsFromKeys(): Promise<string[]> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    return keys.filter((k) => k.startsWith("rf_p_") || k.startsWith("rf_b_")).map((k) => k.slice(5));
+  } catch { return []; }
+}
+
+async function loadProject(id: string): Promise<{ p: Project | null; recoveredName?: string }> {
+  const p = await readJSON<Project>(K.proj(id));
+  if (validateProject(p)) return { p: normalize(p) };
+  const b = await readJSON<Project>(K.bak(id));
+  if (validateProject(b)) return { p: normalize({ ...b, recovered: true }), recoveredName: b.name };
+  return { p: null };
+}
+
+async function hydrate() {
+  // Index + key scan together: projects missing from a damaged/stale index are still found.
+  const [index, keyIds, assetsRaw, brandsRaw, settingsRaw] = await Promise.all([
+    readJSON<string[]>(K.index), projectIdsFromKeys(), readJSON<Asset[]>(K.assets), readJSON<Brand[]>(K.brands), readJSON<Settings>(K.settings),
+  ]);
+  const ids = Array.from(new Set([...arr<string>(index), ...keyIds].filter((x) => typeof x === "string" && x)));
+  const loaded = await Promise.all(ids.map((id) => loadProject(id).catch(() => ({ p: null } as { p: Project | null; recoveredName?: string }))));
+  const recovered = loaded.map((l) => l.recoveredName).filter(Boolean) as string[];
+  const fromDisk = loaded.map((l) => l.p).filter(Boolean) as Project[];
+  // Merge with anything created/edited during the first moments (in-memory copy wins).
+  const live = new Map(state.projects.map((p) => [p.id, p]));
+  const projects = [...state.projects, ...fromDisk.filter((p) => !live.has(p.id))];
+  const assets = [...state.assets, ...arr<Asset>(assetsRaw).filter((a) => !state.assets.some((x) => x.id === a.id))];
+  const brands = [...state.brands, ...arr<Brand>(brandsRaw).filter((b) => !state.brands.some((x) => x.id === b.id))];
+  const settings: Settings = { ...defaultSettings, ...(settingsRaw && typeof settingsRaw === "object" ? settingsRaw : {}), ...pendingSettings };
+  pendingSettings = {};
   setColorScheme(settings.theme === "system" ? null : settings.theme);
-  set({ ready: true, projects: projects.sort((a, b) => b.updatedAt - a.updatedAt), assets, brands, settings, recovered });
+  set({ ready: true, loadError: null, projects: projects.sort((a, b) => b.updatedAt - a.updatedAt), assets, brands, settings, recovered });
+  // Repair the index if it was missing, damaged or stale.
+  const indexIds = arr<string>(index);
+  if (indexIds.length !== projects.length || projects.some((p) => !indexIds.includes(p.id))) await writeIndexNow();
+}
+
+export function initStore(): Promise<void> {
+  if (state.ready && !state.loadError) return Promise.resolve();
+  hydration = hydrate().catch((e: any) => {
+    // Keep the app usable; pause shared writes so the unreadable data is not overwritten.
+    set({ ready: true, loadError: e?.message ? String(e.message) : "Saved data could not be read" });
+  });
+  return hydration;
+}
+
+/** Re-attempt reading saved data after a failure (used by the Home recovery banner). */
+export async function retryLoad() {
+  if (!state.loadError) return;
+  set({ ready: false });
+  await initStore();
+  if (state.loadError) toast("Still can't read saved projects. Your files are untouched.", "error");
+  else toast("Projects loaded", "success");
+}
+
+const canWriteShared = () => state.ready && !state.loadError;
+
+// One error toast per burst so a failing disk does not spam the screen.
+let lastSaveError = 0;
+function reportSaveError(what: string) {
+  const now = Date.now(); if (now - lastSaveError < 4000) return; lastSaveError = now;
+  toast(`Couldn't save ${what}. Free up some storage and try again.`, "error");
 }
 
 const timers: Record<string, ReturnType<typeof setTimeout>> = {};
@@ -77,7 +134,17 @@ async function writeProject(p: Project) {
   const ok = await storage.setItem(K.proj(p.id), JSON.stringify(p));
   if (!ok) throw new Error("Storage write failed");
 }
-async function writeIndex() { await storage.setItem(K.index, JSON.stringify(state.projects.map((p) => p.id))); }
+async function writeIndexNow() {
+  if (!canWriteShared()) return;
+  const ok = await storage.setItem(K.index, JSON.stringify(state.projects.map((p) => p.id)));
+  if (!ok) reportSaveError("your project list");
+}
+async function writeIndex() { await whenHydrated(); await writeIndexNow(); }
+async function writeShared(key: string, value: unknown, what: string) {
+  await whenHydrated(); if (!canWriteShared()) return;
+  const ok = await storage.setItem(key, JSON.stringify(value));
+  if (!ok) reportSaveError(what);
+}
 
 export function saveProject(p: Project, opts: { immediate?: boolean; touch?: boolean } = {}) {
   const next = { ...p, updatedAt: opts.touch === false ? p.updatedAt : Date.now() };
@@ -86,7 +153,7 @@ export function saveProject(p: Project, opts: { immediate?: boolean; touch?: boo
   set({ projects });
   if (!exists) writeIndex();
   clearTimeout(timers[p.id]);
-  const run = () => writeProject(getProject(p.id) ?? next).catch(() => {});
+  const run = () => writeProject(getProject(p.id) ?? next).catch(() => reportSaveError(`“${p.name}”`));
   if (opts.immediate) return run();
   timers[p.id] = setTimeout(run, 700);
 }
@@ -112,10 +179,12 @@ export function duplicateProject(p: Project, name?: string, extra: Partial<Proje
   return copy;
 }
 
-export function saveAssets(assets: Asset[]) { set({ assets }); storage.setItem(K.assets, JSON.stringify(assets)); }
-export function saveBrands(brands: Brand[]) { set({ brands }); storage.setItem(K.brands, JSON.stringify(brands)); }
+export function saveAssets(assets: Asset[]) { set({ assets }); writeShared(K.assets, state.assets, "your asset library"); }
+export function saveBrands(brands: Brand[]) { set({ brands }); writeShared(K.brands, state.brands, "your brand kits"); }
 export function updateSettings(patch: Partial<Settings>) {
-  const settings = { ...state.settings, ...patch }; set({ settings }); storage.setItem(K.settings, JSON.stringify(settings));
+  if (!state.ready) pendingSettings = { ...pendingSettings, ...patch };
+  const settings = { ...state.settings, ...patch }; set({ settings });
+  writeShared(K.settings, settings, "your settings").then(() => undefined);
   if (patch.theme) setColorScheme(patch.theme === "system" ? null : patch.theme);
 }
 export function pushRecentCommand(cmd: string) {

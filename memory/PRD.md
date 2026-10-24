@@ -23,3 +23,8 @@ Build RF Canvas: a premium, Android-first, fully offline creative super app (des
 
 ## Testing
 - iteration_1: ~92% flows passed on web; /assets route conflict fixed (renamed to /library); native-tabs import migrated; negative SVG sizes clamped.
+
+## Update (Sep 2026) — branding, instant start, error handling
+- New RF monogram logo (white RF pen-stroke on #FF5E00): icon, adaptive icon, splash (light #F5F6F8 / dark #0F1013), favicon, in-app header logo. Emergent assets removed; bundle id com.rfcanvas.app.
+- Instant start: no render gating; fonts non-blocking (theme.ts setFontsReady); parallel store hydration with pre-hydration merge + index self-repair; splash hidden on first frame (no fade); skeletons not spinners; withProject gate for [id] routes.
+- Error handling: guarded tap handlers, save/load error toasts + Retry banner, Hermes/web unhandled rejection toasts, error boundary 'Back to Home'.

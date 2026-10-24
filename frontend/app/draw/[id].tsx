@@ -11,12 +11,13 @@ import { newLayer, newPage } from "@/src/engine/factory";
 import { pathBox, pointInLayer, Pt, smoothPath, stabilize, variableStroke } from "@/src/engine/geometry";
 import { toast } from "@/src/engine/store";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 type Brush = "pen" | "pencil" | "marker" | "airbrush" | "calligraphy" | "tapered" | "eraser";
 const brushes: [Brush, string][] = [["pen", "Pen"], ["pencil", "Pencil"], ["marker", "Marker"], ["airbrush", "Airbrush"], ["calligraphy", "Calligraphy"], ["tapered", "Tapered"], ["eraser", "Stroke eraser"]];
 
 // Drawing & Calligraphy Studio: strokes become editable vector path layers on the page.
-export default function Draw() {
+function Draw() {
   const { id, page } = useLocalSearchParams<{ id: string; page?: string }>(); const ed = useEditor(id!); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme();
   useEffect(() => { if (page) ed.setPageIndex(Number(page)); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   const [brush, setBrush] = useState<Brush>("pen"); const [size, setSize] = useState(12); const [opacity, setOpacity] = useState(100); const [color, setColor] = useState("#1C1C1E");
@@ -115,3 +116,5 @@ export default function Draw() {
     </View>
   );
 }
+
+export default withProject(Draw);

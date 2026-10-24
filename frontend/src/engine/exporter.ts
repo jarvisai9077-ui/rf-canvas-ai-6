@@ -115,9 +115,14 @@ export async function exportPDF(p: Project, tpl: string, o: { bleedPx?: number; 
   return finish(p, { uri, name, format: "pdf", ...(await validateFile(uri, "pdf")) });
 }
 
+// Recording export history must never turn a successful export into a failure.
 async function finish(p: Project, r: ExportResult) {
-  const list = await listExports();
-  await storage.setItem("rf_exports", JSON.stringify([{ ...r, projectId: p.id, t: Date.now() }, ...list].slice(0, 200)));
+  try {
+    const list = await listExports();
+    // Web data-URI results can be megabytes; keep history light.
+    const rec = { ...r, uri: r.uri.startsWith("data:") ? "downloaded" : r.uri, projectId: p.id, t: Date.now() };
+    await storage.setItem("rf_exports", JSON.stringify([rec, ...list].slice(0, 200)));
+  } catch { /* history is best-effort */ }
   return r;
 }
 export async function listExports(): Promise<ExportRecord[]> {

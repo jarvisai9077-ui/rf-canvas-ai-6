@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.rfcreative.uicbjl",
+      "bundleIdentifier": "com.rfcanvas.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Capture photos and videos for your designs",
         "NSPhotoLibraryUsageDescription": "Place your photos into designs and edits",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FF5E00"
       },
-      "package": "com.emergent.rfcreative.uicbjl",
+      "package": "com.rfcanvas.app",
       "permissions": [
         "android.permission.CAMERA"
       ]
@@ -30,17 +30,25 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "RF Canvas",
+      "shortName": "RF Canvas",
+      "themeColor": "#FF5E00",
+      "backgroundColor": "#F5F6F8"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-image.png",
-          "imageWidth": 200,
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#F5F6F8",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#0F1013"
+          }
         }
       ],
       "expo-font",
@@ -64,6 +72,7 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "backgroundColor": "#F5F6F8"
   }
 }

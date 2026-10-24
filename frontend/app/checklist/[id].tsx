@@ -7,9 +7,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Btn, Card, Chip, ChipRow, Header, IconBtn, Input, Section, T } from "@/src/components/ui";
 import { getState, promptText, saveProject, toast, uid, updateSettings, useStore } from "@/src/engine/store";
 import { spacing, useTheme } from "@/src/theme";
+import { withProject } from "@/src/components/ProjectGate";
 
 // Creative Production Checklist + annotation review list for a project.
-export default function Checklist() {
+function Checklist() {
   const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const insets = useSafeAreaInsets(); const { colors } = useTheme();
   const { projects, settings } = useStore(); const p = projects.find((x) => x.id === id); const [text, setText] = useState("");
   if (!p) return null;
@@ -62,3 +63,5 @@ export default function Checklist() {
     </View>
   );
 }
+
+export default withProject(Checklist);

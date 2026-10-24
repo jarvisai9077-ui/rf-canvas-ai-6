@@ -4,4 +4,10 @@
 // handlers; inside components useQueryClient() returns this same instance.
 import { QueryClient } from "@tanstack/react-query";
 
-export const queryClient = new QueryClient();
+// Offline-first app: fail fast, show cached data, and never refetch-spin on focus.
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, staleTime: 60_000, refetchOnWindowFocus: false, networkMode: "offlineFirst" },
+    mutations: { retry: 0, networkMode: "offlineFirst" },
+  },
+});
